@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<style>
+			html{
+				background-color: black;
+			}
+			pre{
+				padding: 0 1rem;
+				color:lightgreen;
+				font-family: consolas, monospace;
+				font-size: 1rem;
+				line-height: 1.6rem;
+			}
+		</style>
+	</head>
+	<body>
+		<pre>Route domain name loading...</pre>
+		<script>
+			/*
+			const log = document.querySelector('pre');
+			function error()
+			{
+				log.appendChild(document.createTextNode('\nRoute network line is busy\nPlease try again later！'));
+				//location.assign('https://localhost');
+			}
+			Promise.any(['websocket.example.com'].map(domain => new Promise((resolve, reject) => {
+				const websocket = new WebSocket(`wss://${domain}`);
+				websocket.onerror = reject;
+				websocket.onmessage = event => resolve(event.data.split(','));
+			}))).then(routes => {
+				const controller = new AbortController;
+				console.log(routes)
+				log.appendChild(document.createTextNode('\nThe fastest line testing...'));
+				Promise.any(routes.map(route => fetch(route, {cache: 'no-cache', signal: controller.signal}).then(async response =>
+				{
+					log.appendChild(document.createTextNode(`\nWait ${response.url} ...`));
+					await response.blob();
+					return response.url;
+				}))).then(url =>
+				{
+					controller.abort();
+					log.appendChild(document.createTextNode(`\nData ${url} done!`));
+					location.assign(url);
+				}, error);
+			}, error);
+			*/
+		</script>
+	</body>
+</html>
