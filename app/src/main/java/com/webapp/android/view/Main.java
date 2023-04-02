@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 
 import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 
 import android.net.Uri;
@@ -14,15 +15,20 @@ import android.os.Bundle;
 import android.os.Message;
 import android.provider.Settings;
 
+import android.text.InputType;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 
+import android.webkit.JsPromptResult;
+import android.webkit.JsResult;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 
 import java.io.File;
@@ -58,8 +64,44 @@ public class Main extends Activity {
                 return false;
             }
         });
-
         webview.setWebChromeClient(new WebChromeClient() {
+            //对话框去掉标题
+            @Override
+            public boolean onJsAlert(WebView view, String url, String message, final JsResult result) {
+                new AlertDialog.Builder(view.getContext())
+                        .setMessage(message)
+                        .setPositiveButton("OK", (DialogInterface dialog, int which) -> result.confirm())
+                        .setOnDismissListener((DialogInterface dialog) -> result.confirm())
+                        .create()
+                        .show();
+                return true;
+            }
+            @Override
+            public boolean onJsConfirm(WebView view, String url, String message, JsResult result){
+                new AlertDialog.Builder(view.getContext())
+                        .setMessage(message)
+                        .setPositiveButton("OK", (DialogInterface dialog, int which) -> result.confirm())
+                        .setNegativeButton("NO", (DialogInterface dialog, int which) -> result.cancel())
+                        .setOnDismissListener((DialogInterface dialog) -> result.cancel())
+                        .create()
+                        .show();
+                return true;
+            }
+            @Override
+            public boolean onJsPrompt(WebView view, String url, String message, String defaultValue, JsPromptResult result) {
+                final EditText input = new EditText(view.getContext());
+                input.setInputType(InputType.TYPE_CLASS_TEXT);
+                input.setText(defaultValue);
+                new AlertDialog.Builder(view.getContext())
+                        .setMessage(message)
+                        .setView(input)
+                        .setPositiveButton("OK", (DialogInterface dialog, int which) -> result.confirm(input.getText().toString()))
+                        .setNegativeButton("NO", (DialogInterface dialog, int which) -> result.cancel())
+                        .setOnDismissListener((DialogInterface dialog) -> result.cancel())
+                        .create()
+                        .show();
+                return true;
+            }
             //视频全屏
             View fullscreen = null;
             @Override
@@ -77,7 +119,9 @@ public class Main extends Activity {
                     ((FrameLayout)getWindow().getDecorView()).removeView(fullscreen);
                 }
                 fullscreen = view;
-                ((FrameLayout)getWindow().getDecorView()).addView(fullscreen, new FrameLayout.LayoutParams(-1, -1));
+
+                ((FrameLayout)getWindow().getDecorView()).addView(fullscreen,
+                        new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
                 fullscreen.setVisibility(View.VISIBLE);
             }
             //打开新窗口
