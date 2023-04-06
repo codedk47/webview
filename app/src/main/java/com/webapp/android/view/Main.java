@@ -14,8 +14,8 @@ import android.os.Bundle;
 
 import android.os.Message;
 import android.provider.Settings;
-
 import android.text.InputType;
+
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -31,19 +31,25 @@ import android.webkit.WebViewClient;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 
+import androidx.browser.customtabs.CustomTabsIntent;
+
 import java.io.File;
+import java.util.Objects;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-public class Main extends Activity {
-    private WebView webview;
-    public static final int INPUT_FILE_REQUEST_CODE = 1;
+public class Main extends Activity
+{
+    private WebView webview, open_window;
+    private static final int REQUEST_CODE_CHROME_CUSTOM_TAB = 0;
+    public static final int REQUEST_CODE_INPUT_FILE = 1;
     private ValueCallback<Uri[]> mFilePathCallback;
-    @SuppressLint("SetJavaScriptEnabled")
+    @SuppressLint({"SetJavaScriptEnabled", "UnsafeDynamicallyLoadedCode"})
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    protected void onCreate(Bundle savedInstanceState)
+    {
         super.onCreate(savedInstanceState);
+        //System.loadLibrary("libchrome");
+
+
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         Window window = getWindow();
         window.setFlags(
@@ -53,21 +59,21 @@ public class Main extends Activity {
                 WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
                 WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
         webview = new WebView(this);
-        webview.setWebViewClient(new WebViewClient() {
+
+        webview.setWebViewClient(new WebViewClient()
+        {
             @Override
-            public boolean shouldOverrideUrlLoading(WebView webview, String url) {
-                Matcher urls = Pattern.compile("^\\w+:\\/\\/").matcher(url);
-                if (urls.find() && !urls.group(0).toLowerCase().startsWith("http")) {
-                    open(url);
-                    return true;
-                }
+            public boolean shouldOverrideUrlLoading(WebView webview, String url)
+            {
                 return false;
             }
         });
-        webview.setWebChromeClient(new WebChromeClient() {
+        webview.setWebChromeClient(new WebChromeClient()
+        {
             //对话框去掉标题
             @Override
-            public boolean onJsAlert(WebView view, String url, String message, final JsResult result) {
+            public boolean onJsAlert(WebView view, String url, String message, final JsResult result)
+            {
                 new AlertDialog.Builder(view.getContext())
                         .setMessage(message)
                         .setPositiveButton("OK", (DialogInterface dialog, int which) -> result.confirm())
@@ -77,7 +83,8 @@ public class Main extends Activity {
                 return true;
             }
             @Override
-            public boolean onJsConfirm(WebView view, String url, String message, JsResult result){
+            public boolean onJsConfirm(WebView view, String url, String message, JsResult result)
+            {
                 new AlertDialog.Builder(view.getContext())
                         .setMessage(message)
                         .setPositiveButton("OK", (DialogInterface dialog, int which) -> result.confirm())
@@ -88,7 +95,8 @@ public class Main extends Activity {
                 return true;
             }
             @Override
-            public boolean onJsPrompt(WebView view, String url, String message, String defaultValue, JsPromptResult result) {
+            public boolean onJsPrompt(WebView view, String url, String message, String defaultValue, JsPromptResult result)
+            {
                 final EditText input = new EditText(view.getContext());
                 input.setInputType(InputType.TYPE_CLASS_TEXT);
                 input.setText(defaultValue);
@@ -126,16 +134,18 @@ public class Main extends Activity {
             }
             //打开新窗口
             @Override
-            public boolean onCreateWindow(WebView webview, boolean isDialog, boolean isUserGesture, Message resultMsg) {
-                WebView window = new WebView(Main.this);
-                webview.addView(window);
+            public boolean onCreateWindow(WebView webview, boolean isDialog, boolean isUserGesture, Message resultMsg)
+            {
+                WebView target = new WebView(Main.this);
+                //webview.addView(window);
                 WebView.WebViewTransport transport = (WebView.WebViewTransport)resultMsg.obj;
-                transport.setWebView(window);
+                transport.setWebView(target);
                 resultMsg.sendToTarget();
-                window.setWebViewClient(new WebViewClient() {
+                target.setWebViewClient(new WebViewClient()
+                {
                     @Override
                     public boolean shouldOverrideUrlLoading(WebView webview, String url) {
-                        open(url);
+                        open(url, webview);
                         return true;
                     }
                 });
@@ -143,17 +153,14 @@ public class Main extends Activity {
             }
             //选择文件
             @Override
-            public boolean onShowFileChooser(WebView webview, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
-                if(mFilePathCallback != null) {
+            public boolean onShowFileChooser(WebView webview, ValueCallback<Uri[]> filePathCallback, WebChromeClient.FileChooserParams fileChooserParams)
+            {
+                if(mFilePathCallback != null)
+                {
                     mFilePathCallback.onReceiveValue(null);
                 }
                 mFilePathCallback = filePathCallback;
-                Intent contentSelectionIntent = new Intent(Intent.ACTION_GET_CONTENT);
-                contentSelectionIntent.addCategory(Intent.CATEGORY_OPENABLE);
-                contentSelectionIntent.setType("image/*");
-                Intent chooserIntent = new Intent(Intent.ACTION_CHOOSER);
-                chooserIntent.putExtra(Intent.EXTRA_INTENT, contentSelectionIntent);
-                startActivityForResult(chooserIntent, INPUT_FILE_REQUEST_CODE);
+                startActivityForResult(fileChooserParams.createIntent(), REQUEST_CODE_INPUT_FILE);
                 return true;
             }
         });
@@ -187,20 +194,65 @@ public class Main extends Activity {
         webview.loadUrl("file:///android_asset/index.html");
         setContentView(webview);
     }
-    private void open(String url)
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data)
     {
-        try{
-            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
-        } catch (Exception e) {
+        if (requestCode == REQUEST_CODE_CHROME_CUSTOM_TAB && open_window != null)
+        {
+            open_window.destroy();
+            open_window = null;
+            return;
+        }
+        if(requestCode == REQUEST_CODE_INPUT_FILE && mFilePathCallback != null)
+        {
+            Uri[] results = null;
+            if(resultCode == Activity.RESULT_OK && data != null)
+            {
+                String dataString = data.getDataString();
+                if (dataString != null)
+                {
+                    results = new Uri[]{Uri.parse(dataString)};
+                }
+            }
+            mFilePathCallback.onReceiveValue(results);
+            mFilePathCallback = null;
+            return;
+        }
+        super.onActivityResult(requestCode, resultCode, data);
+    }
+    private void open(String url, WebView webview)
+    {
+        try
+        {
+            Uri uri = Uri.parse(url);
+            if (uri.getScheme().toLowerCase().startsWith("http"))
+            {
+                CustomTabsIntent tab = new CustomTabsIntent.Builder().build();
+                tab.intent.setPackage("com.android.chrome");
+                tab.intent.setData(uri);
+                open_window = webview;
+                startActivityForResult(tab.intent, REQUEST_CODE_CHROME_CUSTOM_TAB);
+            }
+            else
+            {
+                startActivity(new Intent(Intent.ACTION_VIEW, uri));
+            }
+        }
+        catch (Exception e)
+        {
             new AlertDialog.Builder(Main.this).setMessage(e.getMessage()).show();
         }
     }
     @SuppressLint("HardwareIds")
-    private String did() {
+    private String did()
+    {
         String did;
-        try {
+        try
+        {
             did = Settings.Secure.getString(this.getContentResolver(), Settings.Secure.ANDROID_ID);
-        } catch (Exception ex) {
+        }
+        catch (Exception e)
+        {
             did = Build.BOARD+
                     Build.BRAND +
                     Build.DEVICE +
@@ -222,39 +274,15 @@ public class Main extends Activity {
         did = "000000000000000" + Long.toHexString(hash);
         return did.substring(did.length() - 16);
     }
-    private String cid() {
-        try {
-            return ChannelReader.get(new File(this.getApplicationInfo().sourceDir)).getChannel();
-        } catch (Exception ex) {
+    private String cid()
+    {
+        try
+        {
+            return Objects.requireNonNull(ChannelReader.get(new File(this.getApplicationInfo().sourceDir))).getChannel();
+        }
+        catch (Exception e)
+        {
             return "";
         }
-    }
-
-    @Override
-    public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if(requestCode != INPUT_FILE_REQUEST_CODE || mFilePathCallback == null) {
-            super.onActivityResult(requestCode, resultCode, data);
-            return;
-        }
-
-        Uri[] results = null;
-
-        // Check that the response is a good one
-        if(resultCode == Activity.RESULT_OK) {
-            if(data == null) {
-                // If there is not data, then we may have taken a photo
-//                if(mCameraPhotoPath != null) {
-//                    results = new Uri[]{Uri.parse(mCameraPhotoPath)};
-//                }
-            } else {
-                String dataString = data.getDataString();
-                if (dataString != null) {
-                    results = new Uri[]{Uri.parse(dataString)};
-                }
-            }
-        }
-
-        mFilePathCallback.onReceiveValue(results);
-        mFilePathCallback = null;
     }
 }
